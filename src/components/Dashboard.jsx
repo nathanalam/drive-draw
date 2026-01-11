@@ -25,7 +25,7 @@ const Dashboard = ({ accessToken, onCreate, onOpenPicker, onLogout, userProfile 
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                     <img
-                        src="/logo.jpg"
+                        src={`${import.meta.env.BASE_URL}logo.jpg`}
                         alt="Drive Draw Logo"
                         style={{
                             width: '40px',

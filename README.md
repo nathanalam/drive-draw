@@ -1,16 +1,49 @@
-# React + Vite
+# Drive Draw
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Drive Draw is a seamless integration of [Excalidraw](https://excalidraw.com/) with Google Drive. It allows you to create, edit, and manage your Excalidraw diagrams directly within your Google Drive storage, providing a native file management experience.
 
-Currently, two official plugins are available:
+## How it Works
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+Drive Draw operates as a Google Drive application, offering the following workflow:
 
-## React Compiler
+1.  **Authentication**: Users sign in with their Google account to authorize access to their Drive.
+2.  **File Management**:
+    *   **Dashboard**: Upon login, users are presented with a dashboard to create new drawings or open existing ones.
+    *   **Direct Storage**: All `.excalidraw` files are stored directly in your Google Drive. There is no third-party database holding your data.
+    *   **Open from Drive**: You can open files directly from the Google Drive interface (Right-click -> Open with -> Drive Draw) or use the in-app file picker.
+3.  **Real-time Saving**: Changes made to the canvas are automatically synced back to the specific file in Google Drive.
+4.  **Sharing**: You can use the standard Google Drive sharing features to collaborate with others. The "Share" button in the app opens the Drive sharing dialog.
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Features
 
-## Expanding the ESLint configuration
+This application utilizes the core **Excalidraw** engine. For a complete list of drawing features, shortcuts, and tools, please refer to the official documentation:
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+*   [Excalidraw Website](https://excalidraw.com/)
+*   [Excalidraw Documentation](https://docs.excalidraw.com/)
+
+**Drive Draw specific features:**
+*   Automatic Dark Mode aesthetics.
+*   Custom File Picker for identifying valid Excalidraw files in your Drive.
+*   Direct integration with Google Drive Revision History.
+
+## Technology Stack
+
+*   [React](https://react.dev/)
+*   [Vite](https://vitejs.dev/)
+*   [Excalidraw Package](https://www.npmjs.com/package/@excalidraw/excalidraw)
+*   [Google Drive API v3](https://developers.google.com/drive/api/v3/reference)
+
+## Development
+
+To run this project locally:
+
+1.  Clone the repository.
+2.  Install dependencies:
+    ```bash
+    npm install
+    ```
+3.  Create a Google Cloud Project and configure OAuth credentials (see `src/main.jsx`).
+4.  Run the development server:
+    ```bash
+    npm run dev
+    ```
