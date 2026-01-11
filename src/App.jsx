@@ -205,6 +205,75 @@ const App = () => {
     )
   }
 
+  // Standalone mode - show install prompt
+  if (status === "Standalone") {
+    return (
+      <div className="loader-container fade-in">
+        <div style={{ textAlign: 'center', maxWidth: '600px', padding: '2rem' }}>
+          <h1 style={{ fontSize: '3rem', marginBottom: '1rem', background: 'linear-gradient(135deg, #38bdf8 0%, #818cf8 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+            Drive Draw
+          </h1>
+          <p style={{ fontSize: '1.2rem', marginBottom: '2rem', color: '#94a3b8' }}>
+            A beautiful Excalidraw integration for Google Drive
+          </p>
+
+          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+            <button
+              onClick={() => login()}
+              className="glass-panel"
+              style={{
+                padding: '1rem 2rem',
+                color: 'white',
+                cursor: 'pointer',
+                fontSize: '1.1rem',
+                fontWeight: '600',
+                background: 'linear-gradient(135deg, #38bdf8 0%, #818cf8 100%)',
+                border: 'none',
+                transition: 'transform 0.2s ease, box-shadow 0.2s ease'
+              }}
+              onMouseEnter={(e) => {
+                e.target.style.transform = 'translateY(-2px)';
+                e.target.style.boxShadow = '0 10px 20px rgba(56, 189, 248, 0.3)';
+              }}
+              onMouseLeave={(e) => {
+                e.target.style.transform = 'translateY(0)';
+                e.target.style.boxShadow = '';
+              }}
+            >
+              🚀 Install to Google Drive
+            </button>
+
+            {accessToken && (
+              <button
+                onClick={() => setStatus("Ready")}
+                className="glass-panel"
+                style={{
+                  padding: '1rem 2rem',
+                  color: 'white',
+                  cursor: 'pointer',
+                  fontSize: '1.1rem',
+                  fontWeight: '500'
+                }}
+              >
+                ✏️ Start Drawing
+              </button>
+            )}
+          </div>
+
+          <div style={{ marginTop: '3rem', padding: '1.5rem', background: 'rgba(56, 189, 248, 0.1)', borderRadius: '12px', border: '1px solid rgba(56, 189, 248, 0.3)' }}>
+            <h3 style={{ marginTop: 0, color: '#38bdf8' }}>How it works:</h3>
+            <ol style={{ textAlign: 'left', color: '#cbd5e1', lineHeight: '1.8' }}>
+              <li>Click "Install to Google Drive" to authorize the app</li>
+              <li>Right-click any file in Google Drive</li>
+              <li>Select "Open with" → "Drive Draw"</li>
+              <li>Start creating beautiful diagrams!</li>
+            </ol>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div style={{ height: "100vh", width: "100vw" }}>
       {!accessToken && (
