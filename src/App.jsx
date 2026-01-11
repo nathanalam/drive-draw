@@ -32,6 +32,15 @@ const App = () => {
 
   const headRevisionIdRef = useRef(null);
 
+  // Update page title
+  useEffect(() => {
+    if (fileId) {
+      document.title = fileName;
+    } else {
+      document.title = "Drive Draw";
+    }
+  }, [fileName, fileId]);
+
   // 1. Auth Setup
   const login = useGoogleLogin({
     onSuccess: async (tokenResponse) => {
@@ -346,37 +355,24 @@ const App = () => {
     return (
       <div style={{ height: "100vh", width: "100vw", display: 'flex', flexDirection: 'column' }}>
         {/* Top Bar */}
-        <div style={{
-          height: '50px',
-          background: '#1e293b',
-          borderBottom: '1px solid #334155',
-          display: 'flex',
-          alignItems: 'center',
-          padding: '0 1rem',
-          justifyContent: 'space-between'
-        }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+        {/* Top Bar */}
+        <div className="editor-navbar">
+          <div className="editor-navbar-left">
             <button
               onClick={() => {
                 setFileId(null);
                 setStatus("Dashboard");
               }}
-              style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' }}
+              className="back-button"
+              title="Back to Dashboard"
             >
-              ← Back
+              ← <span>Back</span>
             </button>
             <input
               value={fileName}
               onChange={(e) => setFileName(e.target.value)}
               onBlur={(e) => handleRename(e.target.value)}
-              style={{
-                background: 'transparent',
-                border: 'none',
-                color: 'white',
-                fontSize: '1rem',
-                fontWeight: '500',
-                width: '300px'
-              }}
+              className="editor-title-input"
             />
           </div>
 
@@ -385,10 +381,10 @@ const App = () => {
               // Open share dialog in new tab
               window.open(`https://drive.google.com/file/d/${fileId}?usp=sharing`, '_blank');
             }}
-            className="glass-button"
-            style={{ padding: '0.4rem 1rem', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+            className="glass-button share-btn"
           >
-            👤 Share
+            <span>👤</span>
+            <span className="share-text">Share</span>
           </button>
         </div>
 
