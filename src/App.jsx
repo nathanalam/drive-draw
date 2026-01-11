@@ -58,16 +58,8 @@ const App = () => {
         console.log("Drive state detected:", state);
         if (state.action === 'open' && state.ids.length > 0) {
           setFileId(state.ids[0]);
+          // Set to Auth status - user will need to click to authorize
           setStatus("Auth");
-          // Trigger login only once
-          if (!authTriggeredRef.current) {
-            authTriggeredRef.current = true;
-            console.log("Triggering OAuth login...");
-            // Use setTimeout to ensure the login happens after render
-            setTimeout(() => {
-              login();
-            }, 100);
-          }
         } else {
           // New file creation flow or other actions
           setStatus("Ready (No File)");
@@ -185,11 +177,58 @@ const App = () => {
     }
   };
 
-  if (status === "Initializing" || status === "Auth") {
+  if (status === "Initializing") {
     return (
       <div className="loader-container">
         <div className="loader"></div>
-        <h3>Authenticating with Drive...</h3>
+        <h3>Initializing...</h3>
+      </div>
+    );
+  }
+
+  if (status === "Auth") {
+    return (
+      <div className="loader-container fade-in">
+        <div style={{ textAlign: 'center', maxWidth: '500px', padding: '2rem' }}>
+          <h1 style={{ fontSize: '2.5rem', marginBottom: '1rem', background: 'linear-gradient(135deg, #38bdf8 0%, #818cf8 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+            🔐 Authorization Required
+          </h1>
+          <p style={{ fontSize: '1.1rem', marginBottom: '2rem', color: '#94a3b8', lineHeight: '1.6' }}>
+            To open this file from Google Drive, we need your permission to access your Drive files.
+          </p>
+
+          <button
+            onClick={() => {
+              console.log("User clicked authorize");
+              login();
+            }}
+            className="glass-panel"
+            style={{
+              padding: '1rem 2rem',
+              color: 'white',
+              cursor: 'pointer',
+              fontSize: '1.1rem',
+              fontWeight: '600',
+              background: 'linear-gradient(135deg, #38bdf8 0%, #818cf8 100%)',
+              border: 'none',
+              transition: 'transform 0.2s ease, box-shadow 0.2s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.target.style.transform = 'translateY(-2px)';
+              e.target.style.boxShadow = '0 10px 20px rgba(56, 189, 248, 0.3)';
+            }}
+            onMouseLeave={(e) => {
+              e.target.style.transform = 'translateY(0)';
+              e.target.style.boxShadow = '';
+            }}
+          >
+            🚀 Authorize Access
+          </button>
+
+          <p style={{ fontSize: '0.9rem', marginTop: '1.5rem', color: '#64748b' }}>
+            You'll be redirected to Google to sign in securely
+          </p>
+        </div>
       </div>
     );
   }
