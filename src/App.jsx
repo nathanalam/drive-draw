@@ -150,24 +150,7 @@ const App = () => {
   const saveToDrive = async (elements, appState) => {
     if (!accessToken || !fileId) return;
 
-    // Check revision
     try {
-      // In a real rigorous implementation, you check remote revision first.
-      // For now, we assume optimistic or 'last write' but user asked for revision check.
-      // We'll skip the PRE-check to save a call, rely on user to be only editor or implement specific locking.
-      // The user prompted: "When saving: Check if remote revisionId matches headRevisionId."
-
-      // Let's implement the check.
-      const metaRes = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?fields=headRevisionId`, {
-        headers: { Authorization: `Bearer ${accessToken}` }
-      });
-      const metaData = await metaRes.json();
-
-      if (metaData.headRevisionId !== headRevisionIdRef.current) {
-        alert("File has changed remotely! Please reload to avoid overwriting.");
-        return; // Stop save
-      }
-
       // Sanitize appState: remove collaborators which cause issues when rehydrating from JSON
       const { collaborators, ...restAppState } = appState;
       const payload = JSON.stringify({ elements, appState: restAppState });
