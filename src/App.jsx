@@ -109,6 +109,7 @@ const App = () => {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const stateParam = params.get('state');
+    const idParam = params.get('id');
 
     if (stateParam) {
       try {
@@ -123,6 +124,10 @@ const App = () => {
       } catch (e) {
         console.error("Failed to parse state", e);
       }
+    } else if (idParam) {
+      // Handle direct ID link
+      setFileId(idParam);
+      setStatus(accessToken ? "Loading" : "Auth");
     } else {
       if (accessToken) {
         setStatus("Dashboard");
@@ -131,6 +136,21 @@ const App = () => {
       }
     }
   }, [accessToken]);
+
+  // Sync URL with state
+  useEffect(() => {
+    if (fileId) {
+      const url = new URL(window.location);
+      url.searchParams.set('id', fileId);
+      window.history.pushState({}, '', url);
+    } else {
+      const url = new URL(window.location);
+      url.searchParams.delete('id');
+      // Also clean up 'state' if it exists from Drive redirect
+      url.searchParams.delete('state');
+      window.history.pushState({}, '', url);
+    }
+  }, [fileId]);
 
 
   // Load Content
