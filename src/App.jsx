@@ -34,7 +34,6 @@ const App = () => {
   // 1. Auth Setup
   const login = useGoogleLogin({
     onSuccess: (tokenResponse) => {
-      console.log("Logged in:", tokenResponse);
       setAccessToken(tokenResponse.access_token);
       setStatus("Loading");
     },
@@ -55,7 +54,6 @@ const App = () => {
     if (stateParam) {
       try {
         const state = JSON.parse(stateParam);
-        console.log("Drive state detected:", state);
         if (state.action === 'open' && state.ids.length > 0) {
           setFileId(state.ids[0]);
           // Set to Auth status - user will need to click to authorize
@@ -124,7 +122,6 @@ const App = () => {
   const saveToDrive = async (elements, appState) => {
     if (!accessToken || !fileId) return;
 
-    console.log("Saving...");
     // Check revision
     try {
       // In a real rigorous implementation, you check remote revision first.
@@ -161,7 +158,6 @@ const App = () => {
           setHeadRevisionId(data.headRevisionId);
           headRevisionIdRef.current = data.headRevisionId;
         }
-        console.log("Saved successfully");
       }
 
     } catch (e) {
@@ -199,7 +195,6 @@ const App = () => {
 
           <button
             onClick={() => {
-              console.log("User clicked authorize");
               login();
             }}
             className="glass-panel"
