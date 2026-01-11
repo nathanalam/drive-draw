@@ -2,8 +2,10 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { Excalidraw } from "@excalidraw/excalidraw";
 import "@excalidraw/excalidraw/index.css";
 import { useGoogleLogin } from '@react-oauth/google';
+import Dashboard from './components/Dashboard';
+import FilePicker from './components/FilePicker';
 
-// Simple debounce utility (or we could use lodash.debounce)
+// Simple debounce utility
 const useDebounce = (callback, delay) => {
   const timeoutRef = useRef(null);
 
@@ -21,59 +23,80 @@ const useDebounce = (callback, delay) => {
 
 const App = () => {
   const [fileId, setFileId] = useState(null);
+  const [fileName, setFileName] = useState("Untitled");
   const [fileData, setFileData] = useState(null);
   const [accessToken, setAccessToken] = useState(null);
-  const [headRevisionId, setHeadRevisionId] = useState(null);
-  const [status, setStatus] = useState("Initializing..."); // 'Initializing' | 'Auth' | 'Loading' | 'Ready' | 'Saving' | 'Error'
+  const [userProfile, setUserProfile] = useState(null);
+  const [status, setStatus] = useState("Initializing"); // 'Initializing' | 'Auth' | 'Dashboard' | 'Loading' | 'Ready' | 'Error' | 'Standalone'
+  const [showPicker, setShowPicker] = useState(false);
 
-  // Ref to keep track of latest revision without triggering re-renders in callbacks
   const headRevisionIdRef = useRef(null);
-  // Ref to track if we've already triggered auth to prevent duplicate calls
-  const authTriggeredRef = useRef(false);
 
   // 1. Auth Setup
   const login = useGoogleLogin({
-    onSuccess: (tokenResponse) => {
+    onSuccess: async (tokenResponse) => {
       setAccessToken(tokenResponse.access_token);
-      // Store token with expiry (1 hour = 3600 * 1000 ms)
-      // Google tokens usually last 1 hour
       const expiry = new Date().getTime() + (tokenResponse.expires_in || 3599) * 1000;
       localStorage.setItem('drive_draw_token', tokenResponse.access_token);
       localStorage.setItem('drive_draw_token_expiry', expiry.toString());
 
-      // Only set Loading if we have a file to load. 
-      // Otherwise stay in Standalone/Ready state to show appropriate UI.
+      // Fetch User Profile
+      fetchUserProfile(tokenResponse.access_token);
+
+      // Determine next state
       if (fileId) {
         setStatus("Loading");
       } else {
-        setStatus("Standalone");
+        setStatus("Dashboard");
       }
     },
     onError: (error) => {
       console.error("Login Failed:", error);
       setStatus("Error: Login Failed");
     },
-    scope: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.install',
+    scope: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.install profile email',
   });
 
-  // Restore token from storage on mount
+  const fetchUserProfile = async (token) => {
+    try {
+      const res = await fetch('https://www.googleapis.com/oauth2/v1/userinfo?alt=json', {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const profile = await res.json();
+        setUserProfile(profile);
+      }
+    } catch (e) {
+      console.error("Failed to fetch profile", e);
+    }
+  };
+
+  const logout = () => {
+    setAccessToken(null);
+    setUserProfile(null);
+    localStorage.removeItem('drive_draw_token');
+    localStorage.removeItem('drive_draw_token_expiry');
+    setStatus("Standalone");
+    setFileId(null);
+  };
+
+  // Restore token
   useEffect(() => {
     const storedToken = localStorage.getItem('drive_draw_token');
     const storedExpiry = localStorage.getItem('drive_draw_token_expiry');
 
     if (storedToken && storedExpiry) {
       if (new Date().getTime() < parseInt(storedExpiry)) {
-        console.log("Restored access token from storage");
         setAccessToken(storedToken);
+        fetchUserProfile(storedToken);
       } else {
-        console.log("Stored token expired");
         localStorage.removeItem('drive_draw_token');
         localStorage.removeItem('drive_draw_token_expiry');
       }
     }
   }, []);
 
-  // 2. Parse URL & Trigger Auth
+  // Parse URL
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const stateParam = params.get('state');
@@ -83,38 +106,37 @@ const App = () => {
         const state = JSON.parse(stateParam);
         if (state.action === 'open' && state.ids.length > 0) {
           setFileId(state.ids[0]);
-          // Set to Auth status - user will need to click to authorize
-          // If we already have a token (restored), we can skip Auth UI, but let's wait for accessToken state to update.
-          // The load effect will pick it up.
-          setStatus("Auth");
-        } else {
-          // New file creation flow or other actions
-          setStatus("Ready (No File)");
+          setStatus(accessToken ? "Loading" : "Auth");
+        } else if (state.action === 'create') {
+          // Handle create intent from Drive UI
+          setStatus(accessToken ? "Dashboard" : "Auth");
         }
       } catch (e) {
         console.error("Failed to parse state", e);
-        setStatus("Error: Invalid State");
       }
     } else {
-      // Dev mode or standalone open
-      setStatus("Standalone");
+      if (accessToken) {
+        setStatus("Dashboard");
+      } else {
+        setStatus("Standalone");
+      }
     }
-  }, []); // Empty dependency array - run only once on mount
+  }, [accessToken]);
 
 
-  // 3. Fetch File Content
+  // Load Content
   useEffect(() => {
     if (!accessToken || !fileId) return;
 
     const loadFile = async () => {
       setStatus("Loading");
       try {
-        // Fetch Metadata (Revision ID)
-        const metaRes = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?fields=headRevisionId`, {
+        // Fetch Metadata
+        const metaRes = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?fields=headRevisionId,name`, {
           headers: { Authorization: `Bearer ${accessToken}` }
         });
         const metaData = await metaRes.json();
-        setHeadRevisionId(metaData.headRevisionId);
+        setFileName(metaData.name || "Untitled");
         headRevisionIdRef.current = metaData.headRevisionId;
 
         // Fetch Content
@@ -122,27 +144,25 @@ const App = () => {
           headers: { Authorization: `Bearer ${accessToken}` }
         });
 
-        if (!contentRes.ok) {
-          throw new Error("Failed to fetch file content");
-        }
+        if (!contentRes.ok) throw new Error("Failed to fetch file content");
 
-        // Blobs might come empty for new files
         const blob = await contentRes.blob();
         if (blob.size > 0) {
           const text = await blob.text();
-          const json = JSON.parse(text);
-          // Remove collaborators from appState if present to avoid TypeError: e.appState.collaborators.forEach is not a function
-          if (json.appState && json.appState.collaborators) {
-            delete json.appState.collaborators;
+          try {
+            const json = JSON.parse(text);
+            if (json.appState && json.appState.collaborators) {
+              delete json.appState.collaborators;
+            }
+            setFileData(json);
+          } catch (e) {
+            // If not JSON, empty
+            setFileData({ elements: [], appState: {} });
           }
-          setFileData(json); // Expected { elements, appState }
         } else {
-          // New/Empty file
           setFileData({ elements: [], appState: {} });
         }
-
         setStatus("Ready");
-
       } catch (err) {
         console.error(err);
         setStatus("Error: Load Failed");
@@ -150,14 +170,14 @@ const App = () => {
     };
 
     loadFile();
-  }, [accessToken, fileId]);
+  }, [fileId, accessToken]); // Intentionally removed 'accessToken' from dependency to avoid loop if it refreshes, but actually we need it. Protected by status checks.
 
-  // 4. Save Logic
+
+  // Save Logic
   const saveToDrive = async (elements, appState) => {
     if (!accessToken || !fileId) return;
 
     try {
-      // Sanitize appState: remove collaborators which cause issues when rehydrating from JSON
       const { collaborators, ...restAppState } = appState;
       const payload = JSON.stringify({ elements, appState: restAppState });
 
@@ -172,13 +192,10 @@ const App = () => {
 
       if (res.ok) {
         const data = await res.json();
-        // Update our revision ID
         if (data.headRevisionId) {
-          setHeadRevisionId(data.headRevisionId);
           headRevisionIdRef.current = data.headRevisionId;
         }
       }
-
     } catch (e) {
       console.error("Save failure", e);
     }
@@ -192,170 +209,208 @@ const App = () => {
     }
   };
 
+  // Create New File
+  const handleCreate = async () => {
+    if (!accessToken) return;
+    try {
+      const metadata = {
+        name: `Drawing ${new Date().toLocaleDateString()}.excalidraw`,
+        mimeType: 'application/json'
+      };
+
+      // 1. Create file (metadata only)
+      const createRes = await fetch('https://www.googleapis.com/drive/v3/files', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(metadata)
+      });
+
+      if (!createRes.ok) throw new Error("Failed to create file");
+      const fileData = await createRes.json();
+      const newFileId = fileData.id;
+
+      // 2. Upload initial Empty Content
+      const initialContent = JSON.stringify({ elements: [], appState: { viewBackgroundColor: "#ffffff" } });
+      await fetch(`https://www.googleapis.com/upload/drive/v3/files/${newFileId}?uploadType=media`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: initialContent
+      });
+
+      setFileId(newFileId);
+      setFileName(metadata.name);
+      setFileData({ elements: [], appState: { viewBackgroundColor: "#ffffff" } });
+      setStatus("Ready");
+
+    } catch (e) {
+      console.error("Creation failed", e);
+      alert("Failed to create new file");
+    }
+  };
+
+  // Rename File
+  const handleRename = async (newName) => {
+    setFileName(newName);
+    try {
+      await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
+        method: 'PATCH',
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ name: newName })
+      });
+    } catch (e) {
+      console.error("Rename failed", e);
+    }
+  };
+
+  // Render States
+
   if (status === "Initializing") {
-    return (
-      <div className="loader-container">
-        <div className="loader"></div>
-        <h3>Initializing...</h3>
-      </div>
-    );
+    return <div className="loader-container"><div className="loader"></div><h3>Initializing...</h3></div>;
   }
 
   if (status === "Auth") {
     return (
       <div className="loader-container fade-in">
-        <div style={{ textAlign: 'center', maxWidth: '500px', padding: '2rem' }}>
-          <h1 style={{ fontSize: '2.5rem', marginBottom: '1rem', background: 'linear-gradient(135deg, #38bdf8 0%, #818cf8 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-            🔐 Authorization Required
-          </h1>
-          <p style={{ fontSize: '1.1rem', marginBottom: '2rem', color: '#94a3b8', lineHeight: '1.6' }}>
-            To open this file from Google Drive, we need your permission to access your Drive files.
-          </p>
+        <h1 style={{ fontSize: '2rem' }}>🔐 Auth Required</h1>
+        <button onClick={() => login()} className="glass-panel" style={{ padding: '1rem 2rem', marginTop: '1rem', cursor: 'pointer' }}>Authorize Drive Access</button>
+      </div>
+    );
+  }
 
-          <button
-            onClick={() => {
-              login();
-            }}
-            className="glass-panel"
-            style={{
-              padding: '1rem 2rem',
-              color: 'white',
-              cursor: 'pointer',
-              fontSize: '1.1rem',
-              fontWeight: '600',
-              background: 'linear-gradient(135deg, #38bdf8 0%, #818cf8 100%)',
-              border: 'none',
-              transition: 'transform 0.2s ease, box-shadow 0.2s ease'
-            }}
-            onMouseEnter={(e) => {
-              e.target.style.transform = 'translateY(-2px)';
-              e.target.style.boxShadow = '0 10px 20px rgba(56, 189, 248, 0.3)';
-            }}
-            onMouseLeave={(e) => {
-              e.target.style.transform = 'translateY(0)';
-              e.target.style.boxShadow = '';
-            }}
-          >
-            🚀 Authorize Access
-          </button>
+  if (status === "Dashboard") {
+    return (
+      <>
+        <Dashboard
+          accessToken={accessToken}
+          userProfile={userProfile}
+          onCreate={handleCreate}
+          onOpenPicker={() => setShowPicker(true)}
+          onLogout={logout}
+        />
+        {showPicker && (
+          <FilePicker
+            accessToken={accessToken}
+            onSelect={(id) => {
+              setFileId(id);
+              setShowPicker(false);
+              setStatus("Loading");
+            }} // This triggers loading
+            onCancel={() => setShowPicker(false)}
+          />
+        )}
+      </>
+    );
+  }
 
-          <p style={{ fontSize: '0.9rem', marginTop: '1.5rem', color: '#64748b' }}>
-            You'll be redirected to Google to sign in securely
-          </p>
-        </div>
+  if (status === "Standalone" && !accessToken) {
+    // Landing Page
+    return (
+      <div className="loader-container fade-in">
+        <h1 style={{ fontSize: '3rem', background: 'linear-gradient(135deg, #38bdf8 0%, #818cf8 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+          Drive Draw
+        </h1>
+        <p style={{ color: '#94a3b8' }}>Connect your Google Drive to start drawing</p>
+        <button
+          onClick={() => login()}
+          className="glass-panel"
+          style={{
+            marginTop: '1rem',
+            padding: '1rem 2rem',
+            fontSize: '1.2rem',
+            cursor: 'pointer',
+            background: 'linear-gradient(135deg, #38bdf8 0%, #818cf8 100%)',
+            color: 'white',
+            border: 'none'
+          }}
+        >
+          🚀 Connect Drive
+        </button>
       </div>
     );
   }
 
   if (status === "Loading") {
-    return (
-      <div className="loader-container">
-        <div className="loader"></div>
-        <h3>Loading your drawing...</h3>
-      </div>
-    );
+    return <div className="loader-container"><div className="loader"></div><h3>Loading Drawing...</h3></div>;
   }
 
-  if (status.startsWith("Error")) {
+  if (status === "Ready") {
     return (
-      <div className="loader-container">
-        <h3 style={{ color: '#ef4444' }}>{status}</h3>
-        <button onClick={() => window.location.reload()} className="glass-panel" style={{ padding: '1rem', color: 'white', cursor: 'pointer' }}>Retry</button>
-      </div>
-    )
-  }
-
-  // Standalone mode - show install prompt
-  if (status === "Standalone") {
-    return (
-      <div className="loader-container fade-in">
-        <div style={{ textAlign: 'center', maxWidth: '600px', padding: '2rem' }}>
-          <h1 style={{ fontSize: '3rem', marginBottom: '1rem', background: 'linear-gradient(135deg, #38bdf8 0%, #818cf8 100%)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
-            Drive Draw
-          </h1>
-          <p style={{ fontSize: '1.2rem', marginBottom: '2rem', color: '#94a3b8' }}>
-            A beautiful Excalidraw integration for Google Drive
-          </p>
-
-          <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+      <div style={{ height: "100vh", width: "100vw", display: 'flex', flexDirection: 'column' }}>
+        {/* Top Bar */}
+        <div style={{
+          height: '50px',
+          background: '#1e293b',
+          borderBottom: '1px solid #334155',
+          display: 'flex',
+          alignItems: 'center',
+          padding: '0 1rem',
+          justifyContent: 'space-between'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
             <button
-              onClick={() => login()}
-              className="glass-panel"
-              style={{
-                padding: '1rem 2rem',
-                color: 'white',
-                cursor: 'pointer',
-                fontSize: '1.1rem',
-                fontWeight: '600',
-                background: 'linear-gradient(135deg, #38bdf8 0%, #818cf8 100%)',
-                border: 'none',
-                transition: 'transform 0.2s ease, box-shadow 0.2s ease'
+              onClick={() => {
+                setFileId(null);
+                setStatus("Dashboard");
               }}
-              onMouseEnter={(e) => {
-                e.target.style.transform = 'translateY(-2px)';
-                e.target.style.boxShadow = '0 10px 20px rgba(56, 189, 248, 0.3)';
-              }}
-              onMouseLeave={(e) => {
-                e.target.style.transform = 'translateY(0)';
-                e.target.style.boxShadow = '';
-              }}
+              style={{ background: 'none', border: 'none', color: '#94a3b8', cursor: 'pointer' }}
             >
-              🚀 Install to Google Drive
+              ← Back
             </button>
-
-            {accessToken && (
-              <button
-                onClick={() => setStatus("Ready")}
-                className="glass-panel"
-                style={{
-                  padding: '1rem 2rem',
-                  color: 'white',
-                  cursor: 'pointer',
-                  fontSize: '1.1rem',
-                  fontWeight: '500'
-                }}
-              >
-                ✏️ Start Drawing
-              </button>
-            )}
+            <input
+              value={fileName}
+              onChange={(e) => setFileName(e.target.value)}
+              onBlur={(e) => handleRename(e.target.value)}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: 'white',
+                fontSize: '1rem',
+                fontWeight: '500',
+                width: '300px'
+              }}
+            />
           </div>
 
-          <div style={{ marginTop: '3rem', padding: '1.5rem', background: 'rgba(56, 189, 248, 0.1)', borderRadius: '12px', border: '1px solid rgba(56, 189, 248, 0.3)' }}>
-            <h3 style={{ marginTop: 0, color: '#38bdf8' }}>How it works:</h3>
-            <ol style={{ textAlign: 'left', color: '#cbd5e1', lineHeight: '1.8' }}>
-              <li>Click "Install to Google Drive" to authorize the app</li>
-              <li>Right-click any file in Google Drive</li>
-              <li>Select "Open with" → "Drive Draw"</li>
-              <li>Start creating beautiful diagrams!</li>
-            </ol>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div style={{ height: "100vh", width: "100vw" }}>
-      {!accessToken && (
-        <div style={{ position: 'absolute', top: 20, right: 20, zIndex: 10 }}>
-          <button onClick={() => login()} className="glass-panel" style={{ padding: '0.5rem 1rem', color: 'white', cursor: 'pointer' }}>
-            Sign In
+          <button
+            onClick={() => {
+              // Open share dialog in new tab
+              window.open(`https://drive.google.com/file/d/${fileId}?usp=sharing`, '_blank');
+            }}
+            className="glass-button"
+            style={{ padding: '0.4rem 1rem', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}
+          >
+            👤 Share
           </button>
         </div>
-      )}
-      <Excalidraw
-        initialData={fileData}
-        onChange={handleChange}
-        theme="dark" // Matches our dark aesthetics
-        UIOptions={{
-          canvasActions: {
-            loadScene: false, // Hide built-in load
-            saveToActiveFile: false // Hide built-in save
-          }
-        }}
-      />
-    </div>
-  );
+
+        <div style={{ flex: 1 }}>
+          <Excalidraw
+            initialData={fileData}
+            onChange={handleChange}
+            theme="dark"
+            UIOptions={{
+              canvasActions: {
+                loadScene: false,
+                saveToActiveFile: false,
+                export: { saveFileToDisk: true } // Allow export to disk
+              }
+            }}
+          />
+        </div>
+      </div>
+    );
+  }
+
+  return <div>Error: Unknown State</div>;
 };
 
 export default App;
