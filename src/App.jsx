@@ -101,6 +101,10 @@ const App = () => {
         if (blob.size > 0) {
           const text = await blob.text();
           const json = JSON.parse(text);
+          // Remove collaborators from appState if present to avoid TypeError: e.appState.collaborators.forEach is not a function
+          if (json.appState && json.appState.collaborators) {
+            delete json.appState.collaborators;
+          }
           setFileData(json); // Expected { elements, appState }
         } else {
           // New/Empty file
@@ -140,7 +144,9 @@ const App = () => {
         return; // Stop save
       }
 
-      const payload = JSON.stringify({ elements, appState });
+      // Sanitize appState: remove collaborators which cause issues when rehydrating from JSON
+      const { collaborators, ...restAppState } = appState;
+      const payload = JSON.stringify({ elements, appState: restAppState });
 
       const res = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
         method: 'PATCH',
