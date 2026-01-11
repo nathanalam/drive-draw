@@ -28,6 +28,8 @@ const App = () => {
 
   // Ref to keep track of latest revision without triggering re-renders in callbacks
   const headRevisionIdRef = useRef(null);
+  // Ref to track if we've already triggered auth to prevent duplicate calls
+  const authTriggeredRef = useRef(false);
 
   // 1. Auth Setup
   const login = useGoogleLogin({
@@ -53,14 +55,19 @@ const App = () => {
     if (stateParam) {
       try {
         const state = JSON.parse(stateParam);
+        console.log("Drive state detected:", state);
         if (state.action === 'open' && state.ids.length > 0) {
           setFileId(state.ids[0]);
-          // Check if we have an access token? If not, trigger login
-          // Note context: We are likely needing to prompt or rely on previous session.
-          // For this implementation, we will trigger login immediately.
-          // In a real app, might check token storage first.
           setStatus("Auth");
-          login();
+          // Trigger login only once
+          if (!authTriggeredRef.current) {
+            authTriggeredRef.current = true;
+            console.log("Triggering OAuth login...");
+            // Use setTimeout to ensure the login happens after render
+            setTimeout(() => {
+              login();
+            }, 100);
+          }
         } else {
           // New file creation flow or other actions
           setStatus("Ready (No File)");
@@ -72,9 +79,9 @@ const App = () => {
     } else {
       // Dev mode or standalone open
       setStatus("Standalone");
-      // login(); // Optional: trigger login button manually
     }
-  }, [login]);
+  }, []); // Empty dependency array - run only once on mount
+
 
   // 3. Fetch File Content
   useEffect(() => {
