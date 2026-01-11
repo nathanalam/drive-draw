@@ -45,8 +45,9 @@ const App = () => {
   const login = useGoogleLogin({
     onSuccess: async (tokenResponse) => {
       setAccessToken(tokenResponse.access_token);
-
-      // Fetch User Profile
+      const expiry = new Date().getTime() + (tokenResponse.expires_in || 3599) * 1000;
+      localStorage.setItem('drive_draw_token', tokenResponse.access_token);
+      localStorage.setItem('drive_draw_token_expiry', expiry.toString());
 
       // Fetch User Profile
       fetchUserProfile(tokenResponse.access_token);
@@ -82,13 +83,27 @@ const App = () => {
   const logout = () => {
     setAccessToken(null);
     setUserProfile(null);
-    setAccessToken(null);
-    setUserProfile(null);
+    localStorage.removeItem('drive_draw_token');
+    localStorage.removeItem('drive_draw_token_expiry');
     setStatus("Standalone");
     setFileId(null);
   };
 
-  // Restore token - Removed for security (in-memory only)
+  // Restore token
+  useEffect(() => {
+    const storedToken = localStorage.getItem('drive_draw_token');
+    const storedExpiry = localStorage.getItem('drive_draw_token_expiry');
+
+    if (storedToken && storedExpiry) {
+      if (new Date().getTime() < parseInt(storedExpiry)) {
+        setAccessToken(storedToken);
+        fetchUserProfile(storedToken);
+      } else {
+        localStorage.removeItem('drive_draw_token');
+        localStorage.removeItem('drive_draw_token_expiry');
+      }
+    }
+  }, []);
 
   // Parse URL
   useEffect(() => {
@@ -407,7 +422,7 @@ const App = () => {
             }}
           />
         </div>
-      </div >
+      </div>
     );
   }
 
