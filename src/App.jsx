@@ -35,6 +35,12 @@ const App = () => {
   const login = useGoogleLogin({
     onSuccess: (tokenResponse) => {
       setAccessToken(tokenResponse.access_token);
+      // Store token with expiry (1 hour = 3600 * 1000 ms)
+      // Google tokens usually last 1 hour
+      const expiry = new Date().getTime() + (tokenResponse.expires_in || 3599) * 1000;
+      localStorage.setItem('drive_draw_token', tokenResponse.access_token);
+      localStorage.setItem('drive_draw_token_expiry', expiry.toString());
+
       setStatus("Loading");
     },
     onError: (error) => {
@@ -42,9 +48,24 @@ const App = () => {
       setStatus("Error: Login Failed");
     },
     scope: 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/drive.install',
-    // drive.file is usually enough if created by app, but for 'Open with', we need access to that specific file.
-    // drive.install is needed to be an installed app.
   });
+
+  // Restore token from storage on mount
+  useEffect(() => {
+    const storedToken = localStorage.getItem('drive_draw_token');
+    const storedExpiry = localStorage.getItem('drive_draw_token_expiry');
+
+    if (storedToken && storedExpiry) {
+      if (new Date().getTime() < parseInt(storedExpiry)) {
+        console.log("Restored access token from storage");
+        setAccessToken(storedToken);
+      } else {
+        console.log("Stored token expired");
+        localStorage.removeItem('drive_draw_token');
+        localStorage.removeItem('drive_draw_token_expiry');
+      }
+    }
+  }, []);
 
   // 2. Parse URL & Trigger Auth
   useEffect(() => {
@@ -57,6 +78,8 @@ const App = () => {
         if (state.action === 'open' && state.ids.length > 0) {
           setFileId(state.ids[0]);
           // Set to Auth status - user will need to click to authorize
+          // If we already have a token (restored), we can skip Auth UI, but let's wait for accessToken state to update.
+          // The load effect will pick it up.
           setStatus("Auth");
         } else {
           // New file creation flow or other actions
@@ -78,6 +101,7 @@ const App = () => {
     if (!accessToken || !fileId) return;
 
     const loadFile = async () => {
+      setStatus("Loading");
       try {
         // Fetch Metadata (Revision ID)
         const metaRes = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?fields=headRevisionId`, {
