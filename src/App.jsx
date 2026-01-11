@@ -194,12 +194,12 @@ const App = () => {
 
 
   // Save Logic
-  const saveToDrive = async (elements, appState) => {
+  const saveToDrive = async (elements, appState, files) => {
     if (!accessToken || !fileId) return;
 
     try {
       const { collaborators, ...restAppState } = appState;
-      const payload = JSON.stringify({ elements, appState: restAppState });
+      const payload = JSON.stringify({ elements, appState: restAppState, files });
 
       const res = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=media`, {
         method: 'PATCH',
@@ -223,9 +223,9 @@ const App = () => {
 
   const debouncedSave = useDebounce(saveToDrive, 2000);
 
-  const handleChange = (elements, appState) => {
+  const handleChange = (elements, appState, files) => {
     if (status === "Ready") {
-      debouncedSave(elements, appState);
+      debouncedSave(elements, appState, files);
     }
   };
 
