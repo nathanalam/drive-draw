@@ -24,20 +24,16 @@ const Dashboard = ({ accessToken, onCreate, onOpenPicker, onLogout, userProfile 
                 marginBottom: '4rem'
             }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
-                    <div style={{
-                        width: '40px',
-                        height: '40px',
-                        borderRadius: '10px',
-                        background: 'linear-gradient(135deg, #38bdf8 0%, #818cf8 100%)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: 'white',
-                        fontWeight: 'bold',
-                        fontSize: '1.2rem'
-                    }}>
-                        D
-                    </div>
+                    <img
+                        src="/logo.jpg"
+                        alt="Drive Draw Logo"
+                        style={{
+                            width: '40px',
+                            height: '40px',
+                            borderRadius: '10px',
+                            objectFit: 'cover'
+                        }}
+                    />
                     <h1 style={{
                         margin: 0,
                         fontSize: '1.5rem',
