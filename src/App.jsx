@@ -301,7 +301,21 @@ const App = () => {
     return (
       <div className="loader-container fade-in">
         <h1 style={{ fontSize: '2rem' }}>🔐 Auth Required</h1>
-        <button onClick={() => login()} className="glass-panel" style={{ padding: '1rem 2rem', marginTop: '1rem', cursor: 'pointer' }}>Authorize Drive Access</button>
+        <button
+          onClick={() => login()}
+          className="glass-panel"
+          style={{
+            padding: '1rem 2rem',
+            marginTop: '1rem',
+            cursor: 'pointer',
+            fontSize: '1.2rem',
+            background: 'linear-gradient(135deg, #38bdf8 0%, #818cf8 100%)',
+            color: 'white',
+            border: 'none'
+          }}
+        >
+          Authorize Drive Access
+        </button>
       </div>
     );
   }
