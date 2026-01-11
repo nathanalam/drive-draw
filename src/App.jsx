@@ -41,7 +41,13 @@ const App = () => {
       localStorage.setItem('drive_draw_token', tokenResponse.access_token);
       localStorage.setItem('drive_draw_token_expiry', expiry.toString());
 
-      setStatus("Loading");
+      // Only set Loading if we have a file to load. 
+      // Otherwise stay in Standalone/Ready state to show appropriate UI.
+      if (fileId) {
+        setStatus("Loading");
+      } else {
+        setStatus("Standalone");
+      }
     },
     onError: (error) => {
       console.error("Login Failed:", error);
