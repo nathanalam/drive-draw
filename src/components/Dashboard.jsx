@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 
+// eslint-disable-next-line no-unused-vars
 const Dashboard = ({ accessToken, onCreate, onOpenPicker, onLogout, userProfile }) => {
     const [isCreating, setIsCreating] = useState(false);
 
