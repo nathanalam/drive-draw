@@ -38,6 +38,14 @@ const App = () => {
   const [showPicker, setShowPicker] = useState(false);
 
   const headRevisionIdRef = useRef(null);
+  const currentDrawingRef = useRef(null);
+
+  const handleAuthError = useCallback(() => {
+    console.warn("Authentication failed or expired. Resetting auth state.");
+    localStorage.removeItem('accessToken');
+    setAccessToken(null);
+    setStatus("Auth");
+  }, []);
 
   // Update page title
   useEffect(() => {
@@ -55,13 +63,18 @@ const App = () => {
       localStorage.setItem('accessToken', tokenResponse.access_token);
 
       // Fetch User Profile
-
-      // Fetch User Profile
       fetchUserProfile(tokenResponse.access_token);
 
       // Determine next state
       if (fileId) {
-        setStatus("Loading");
+        // If we have unsaved work from before auth expired, restore it instead of loading from Drive
+        if (currentDrawingRef.current && currentDrawingRef.current.elements && currentDrawingRef.current.elements.length > 0) {
+           console.log("Restoring unsaved drawing after re-auth");
+           setFileData(currentDrawingRef.current);
+           setStatus("Ready");
+        } else {
+           setStatus("Loading");
+        }
       } else {
         setStatus("Dashboard");
       }
@@ -78,6 +91,10 @@ const App = () => {
       const res = await fetch('https://www.googleapis.com/oauth2/v1/userinfo?alt=json', {
         headers: { Authorization: `Bearer ${token}` }
       });
+      if (res.status === 401) {
+        handleAuthError();
+        return;
+      }
       if (res.ok) {
         const profile = await res.json();
         setUserProfile(profile);
@@ -156,6 +173,12 @@ const App = () => {
         const metaRes = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?fields=headRevisionId,name`, {
           headers: { Authorization: `Bearer ${accessToken}` }
         });
+
+        if (metaRes.status === 401) {
+          handleAuthError();
+          return;
+        }
+
         const metaData = await metaRes.json();
         setFileName(metaData.name || "Untitled");
         headRevisionIdRef.current = metaData.headRevisionId;
@@ -164,6 +187,11 @@ const App = () => {
         const contentRes = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
           headers: { Authorization: `Bearer ${accessToken}` }
         });
+
+        if (contentRes.status === 401) {
+          handleAuthError();
+          return;
+        }
 
         if (!contentRes.ok) throw new Error("Failed to fetch file content");
 
@@ -191,7 +219,7 @@ const App = () => {
     };
 
     loadFile();
-  }, [fileId, accessToken]); // Intentionally removed 'accessToken' from dependency to avoid loop if it refreshes, but actually we need it. Protected by status checks.
+  }, [fileId, accessToken, handleAuthError]); // Intentionally removed 'accessToken' from dependency to avoid loop if it refreshes, but actually we need it. Protected by status checks.
 
 
   // Save Logic
@@ -212,6 +240,11 @@ const App = () => {
         body: payload
       });
 
+      if (res.status === 401) {
+          handleAuthError();
+          return;
+      }
+
       if (res.ok) {
         const data = await res.json();
         if (data.headRevisionId) {
@@ -226,6 +259,8 @@ const App = () => {
   const debouncedSave = useDebounce(saveToDrive, 2000);
 
   const handleChange = (elements, appState, files) => {
+    // Keep track of latest state to restore if auth fails
+    currentDrawingRef.current = { elements, appState, files };
     if (status === "Ready") {
       debouncedSave(elements, appState, files);
     }
@@ -250,13 +285,18 @@ const App = () => {
         body: JSON.stringify(metadata)
       });
 
+      if (createRes.status === 401) {
+          handleAuthError();
+          return;
+      }
+
       if (!createRes.ok) throw new Error("Failed to create file");
       const fileData = await createRes.json();
       const newFileId = fileData.id;
 
       // 2. Upload initial Empty Content
       const initialContent = JSON.stringify({ elements: [], appState: { viewBackgroundColor: "#ffffff" } });
-      await fetch(`https://www.googleapis.com/upload/drive/v3/files/${newFileId}?uploadType=media`, {
+      const uploadRes = await fetch(`https://www.googleapis.com/upload/drive/v3/files/${newFileId}?uploadType=media`, {
         method: 'PATCH',
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -264,6 +304,11 @@ const App = () => {
         },
         body: initialContent
       });
+
+      if (uploadRes.status === 401) {
+        handleAuthError();
+        return;
+      }
 
       setFileId(newFileId);
       setFileName(metadata.name);
@@ -280,7 +325,7 @@ const App = () => {
   const handleRename = async (newName) => {
     setFileName(newName);
     try {
-      await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
+      const res = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}`, {
         method: 'PATCH',
         headers: {
           Authorization: `Bearer ${accessToken}`,
@@ -288,6 +333,10 @@ const App = () => {
         },
         body: JSON.stringify({ name: newName })
       });
+
+      if (res.status === 401) {
+          handleAuthError();
+      }
     } catch (e) {
       console.error("Rename failed", e);
     }
@@ -341,6 +390,7 @@ const App = () => {
               setStatus("Loading");
             }} // This triggers loading
             onCancel={() => setShowPicker(false)}
+            onAuthError={handleAuthError}
           />
         )}
       </>
@@ -433,7 +483,36 @@ const App = () => {
     );
   }
 
-  return <div>Error: Unknown State</div>;
+  // Handle various error states or fallbacks
+  if (status.startsWith("Error")) {
+      return (
+          <div className="loader-container fade-in">
+              <h1 style={{ color: '#ef4444', marginBottom: '1rem' }}>⚠️ Oops!</h1>
+              <p style={{ color: '#94a3b8', marginBottom: '2rem', fontSize: '1.2rem' }}>
+                  {status.replace("Error: ", "")}
+              </p>
+              <button
+                  onClick={() => {
+                      setStatus("Dashboard");
+                      setFileId(null);
+                  }}
+                  className="glass-panel"
+                  style={{
+                      padding: '1rem 2rem',
+                      cursor: 'pointer',
+                      fontSize: '1rem',
+                      background: 'rgba(255, 255, 255, 0.1)',
+                      color: 'white',
+                      border: 'none'
+                  }}
+              >
+                  Return to Dashboard
+              </button>
+          </div>
+      );
+  }
+
+  return <div>Error: Unknown State ({status})</div>;
 };
 
 export default App;
