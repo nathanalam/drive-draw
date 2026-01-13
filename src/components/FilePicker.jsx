@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 
-const FilePicker = ({ accessToken, onSelect, onCancel }) => {
+const FilePicker = ({ accessToken, onSelect, onCancel, onAuthError }) => {
     const [files, setFiles] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
@@ -18,6 +18,11 @@ const FilePicker = ({ accessToken, onSelect, onCancel }) => {
                     headers: { Authorization: `Bearer ${accessToken}` }
                 });
 
+                if (res.status === 401 && onAuthError) {
+                    onAuthError();
+                    return;
+                }
+
                 if (!res.ok) throw new Error("Failed to fetch files");
 
                 const data = await res.json();
@@ -31,7 +36,7 @@ const FilePicker = ({ accessToken, onSelect, onCancel }) => {
         };
 
         fetchFiles();
-    }, [accessToken]);
+    }, [accessToken, onAuthError]);
 
     return (
         <div style={{
