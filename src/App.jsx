@@ -25,10 +25,10 @@ const App = () => {
   const [fileId, setFileId] = useState(null);
   const [fileName, setFileName] = useState("Untitled");
   const [fileData, setFileData] = useState(null);
-  const [accessToken, setAccessToken] = useState(() => sessionStorage.getItem('accessToken'));
+  const [accessToken, setAccessToken] = useState(() => localStorage.getItem('accessToken'));
   const [userProfile, setUserProfile] = useState(() => {
     try {
-      const stored = sessionStorage.getItem('userProfile');
+      const stored = localStorage.getItem('userProfile');
       return stored ? JSON.parse(stored) : null;
     } catch {
       return null;
@@ -52,7 +52,7 @@ const App = () => {
   const login = useGoogleLogin({
     onSuccess: async (tokenResponse) => {
       setAccessToken(tokenResponse.access_token);
-      sessionStorage.setItem('accessToken', tokenResponse.access_token);
+      localStorage.setItem('accessToken', tokenResponse.access_token);
 
       // Fetch User Profile
 
@@ -81,7 +81,7 @@ const App = () => {
       if (res.ok) {
         const profile = await res.json();
         setUserProfile(profile);
-        sessionStorage.setItem('userProfile', JSON.stringify(profile));
+        localStorage.setItem('userProfile', JSON.stringify(profile));
       }
     } catch (e) {
       console.error("Failed to fetch profile", e);
@@ -89,8 +89,8 @@ const App = () => {
   };
 
   const logout = () => {
-    sessionStorage.removeItem('accessToken');
-    sessionStorage.removeItem('userProfile');
+    localStorage.removeItem('accessToken');
+    localStorage.removeItem('userProfile');
     setAccessToken(null);
     setUserProfile(null);
     setStatus("Standalone");
