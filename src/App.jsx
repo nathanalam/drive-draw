@@ -25,8 +25,15 @@ const App = () => {
   const [fileId, setFileId] = useState(null);
   const [fileName, setFileName] = useState("Untitled");
   const [fileData, setFileData] = useState(null);
-  const [accessToken, setAccessToken] = useState(null);
-  const [userProfile, setUserProfile] = useState(null);
+  const [accessToken, setAccessToken] = useState(() => sessionStorage.getItem('accessToken'));
+  const [userProfile, setUserProfile] = useState(() => {
+    try {
+      const stored = sessionStorage.getItem('userProfile');
+      return stored ? JSON.parse(stored) : null;
+    } catch {
+      return null;
+    }
+  });
   const [status, setStatus] = useState("Initializing"); // 'Initializing' | 'Auth' | 'Dashboard' | 'Loading' | 'Ready' | 'Error' | 'Standalone'
   const [showPicker, setShowPicker] = useState(false);
 
@@ -45,6 +52,7 @@ const App = () => {
   const login = useGoogleLogin({
     onSuccess: async (tokenResponse) => {
       setAccessToken(tokenResponse.access_token);
+      sessionStorage.setItem('accessToken', tokenResponse.access_token);
 
       // Fetch User Profile
 
@@ -73,6 +81,7 @@ const App = () => {
       if (res.ok) {
         const profile = await res.json();
         setUserProfile(profile);
+        sessionStorage.setItem('userProfile', JSON.stringify(profile));
       }
     } catch (e) {
       console.error("Failed to fetch profile", e);
@@ -80,21 +89,13 @@ const App = () => {
   };
 
   const logout = () => {
-    setAccessToken(null);
-    setUserProfile(null);
+    sessionStorage.removeItem('accessToken');
+    sessionStorage.removeItem('userProfile');
     setAccessToken(null);
     setUserProfile(null);
     setStatus("Standalone");
     setFileId(null);
   };
-
-  // Restore token
-  // Restore token - Removed for security (in-memory only)
-  /* 
-  useEffect(() => {
-     // Validation logic removed
-  }, []);
-  */
 
   // Parse URL
   useEffect(() => {
@@ -175,7 +176,7 @@ const App = () => {
               delete json.appState.collaborators;
             }
             setFileData(json);
-          } catch (e) {
+          } catch (e) { // eslint-disable-line no-unused-vars
             // If not JSON, empty
             setFileData({ elements: [], appState: {} });
           }
@@ -198,6 +199,7 @@ const App = () => {
     if (!accessToken || !fileId) return;
 
     try {
+      // eslint-disable-next-line no-unused-vars
       const { collaborators, ...restAppState } = appState;
       const payload = JSON.stringify({ elements, appState: restAppState, files });
 
