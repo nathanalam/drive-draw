@@ -224,8 +224,10 @@ const App = () => {
 
 
   // Save Logic
-  const saveToDrive = async (elements, appState, files) => {
+  const saveToDrive = useCallback(async (elements, appState, files) => {
     if (!accessToken || !fileId) return;
+
+    setSyncStatus("saving");
 
     try {
       // eslint-disable-next-line no-unused-vars
@@ -247,7 +249,7 @@ const App = () => {
       }
 
       if (res.ok) {
-        setSyncStatus("synced");
+        setSyncStatus(prev => prev === 'pending' ? 'pending' : 'synced');
         const data = await res.json();
         if (data.headRevisionId) {
           headRevisionIdRef.current = data.headRevisionId;
@@ -259,20 +261,20 @@ const App = () => {
       console.error("Save failure", e);
       setSyncStatus("error");
     }
-  };
+  }, [accessToken, fileId, handleAuthError]);
 
   const debouncedSave = useDebounce(saveToDrive, 2000);
 
-  const handleChange = (elements, appState, files) => {
+  const handleChange = useCallback((elements, appState, files) => {
     if (status === "Ready") {
-      setSyncStatus("saving");
+      setSyncStatus("pending");
     }
     // Keep track of latest state to restore if auth fails
     currentDrawingRef.current = { elements, appState, files };
     if (status === "Ready") {
       debouncedSave(elements, appState, files);
     }
-  };
+  }, [status, debouncedSave]);
 
   // Create New File
   const handleCreate = async () => {
@@ -460,6 +462,11 @@ const App = () => {
               className="editor-title-input"
             />
             <div className="sync-status">
+              {syncStatus === "pending" && (
+                <>
+                  <span style={{ color: "#94a3b8" }}>Waiting for changes to stop...</span>
+                </>
+              )}
               {syncStatus === "saving" && (
                 <>
                   <span className="loader-small"></span>
@@ -469,7 +476,7 @@ const App = () => {
               {syncStatus === "synced" && (
                 <>
                   <span>☁️</span>
-                  <span>Saved</span>
+                  <span>Changes saved!</span>
                 </>
               )}
               {syncStatus === "error" && (
