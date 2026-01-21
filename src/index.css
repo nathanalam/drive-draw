@@ -204,3 +204,22 @@ body {
     padding: 0.4rem 0.6rem !important;
   }
 }
+/* Small Loader for Sync Status */
+.loader-small {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--glass-border);
+  border-bottom-color: var(--accent-color);
+  border-radius: 50%;
+  animation: rotation 1s linear infinite;
+  display: inline-block;
+}
+
+.sync-status {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: #94a3b8;
+  font-size: 0.9rem;
+  margin-left: 1rem;
+}

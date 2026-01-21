@@ -23,7 +23,7 @@ const useDebounce = (callback, delay) => {
 
 const App = () => {
   const [fileId, setFileId] = useState(null);
-  const [fileName, setFileName] = useState("Untitled");
+  const [fileName, setFileName] = useState("Drive Draw");
   const [fileData, setFileData] = useState(null);
   const [accessToken, setAccessToken] = useState(() => localStorage.getItem('accessToken'));
   const [userProfile, setUserProfile] = useState(() => {
@@ -34,7 +34,8 @@ const App = () => {
       return null;
     }
   });
-  const [status, setStatus] = useState("Initializing"); // 'Initializing' | 'Auth' | 'Dashboard' | 'Loading' | 'Ready' | 'Error' | 'Standalone'
+  const [status, setStatus] = useState("Initializing");
+  const [syncStatus, setSyncStatus] = useState("synced"); // 'Initializing' | 'Auth' | 'Dashboard' | 'Loading' | 'Ready' | 'Error' | 'Standalone'
   const [showPicker, setShowPicker] = useState(false);
 
   const headRevisionIdRef = useRef(null);
@@ -69,11 +70,11 @@ const App = () => {
       if (fileId) {
         // If we have unsaved work from before auth expired, restore it instead of loading from Drive
         if (currentDrawingRef.current && currentDrawingRef.current.elements && currentDrawingRef.current.elements.length > 0) {
-           console.log("Restoring unsaved drawing after re-auth");
-           setFileData(currentDrawingRef.current);
-           setStatus("Ready");
+          console.log("Restoring unsaved drawing after re-auth");
+          setFileData(currentDrawingRef.current);
+          setStatus("Ready");
         } else {
-           setStatus("Loading");
+          setStatus("Loading");
         }
       } else {
         setStatus("Dashboard");
@@ -241,24 +242,31 @@ const App = () => {
       });
 
       if (res.status === 401) {
-          handleAuthError();
-          return;
+        handleAuthError();
+        return;
       }
 
       if (res.ok) {
+        setSyncStatus("synced");
         const data = await res.json();
         if (data.headRevisionId) {
           headRevisionIdRef.current = data.headRevisionId;
         }
+      } else {
+        setSyncStatus("error");
       }
     } catch (e) {
       console.error("Save failure", e);
+      setSyncStatus("error");
     }
   };
 
   const debouncedSave = useDebounce(saveToDrive, 2000);
 
   const handleChange = (elements, appState, files) => {
+    if (status === "Ready") {
+      setSyncStatus("saving");
+    }
     // Keep track of latest state to restore if auth fails
     currentDrawingRef.current = { elements, appState, files };
     if (status === "Ready") {
@@ -286,8 +294,8 @@ const App = () => {
       });
 
       if (createRes.status === 401) {
-          handleAuthError();
-          return;
+        handleAuthError();
+        return;
       }
 
       if (!createRes.ok) throw new Error("Failed to create file");
@@ -335,7 +343,7 @@ const App = () => {
       });
 
       if (res.status === 401) {
-          handleAuthError();
+        handleAuthError();
       }
     } catch (e) {
       console.error("Rename failed", e);
@@ -451,6 +459,26 @@ const App = () => {
               onBlur={(e) => handleRename(e.target.value)}
               className="editor-title-input"
             />
+            <div className="sync-status">
+              {syncStatus === "saving" && (
+                <>
+                  <span className="loader-small"></span>
+                  <span>Saving...</span>
+                </>
+              )}
+              {syncStatus === "synced" && (
+                <>
+                  <span>☁️</span>
+                  <span>Saved</span>
+                </>
+              )}
+              {syncStatus === "error" && (
+                <>
+                  <span>⚠️</span>
+                  <span style={{ color: "#ef4444" }}>Error</span>
+                </>
+              )}
+            </div>
           </div>
 
           <button
@@ -485,31 +513,31 @@ const App = () => {
 
   // Handle various error states or fallbacks
   if (status.startsWith("Error")) {
-      return (
-          <div className="loader-container fade-in">
-              <h1 style={{ color: '#ef4444', marginBottom: '1rem' }}>⚠️ Oops!</h1>
-              <p style={{ color: '#94a3b8', marginBottom: '2rem', fontSize: '1.2rem' }}>
-                  {status.replace("Error: ", "")}
-              </p>
-              <button
-                  onClick={() => {
-                      setStatus("Dashboard");
-                      setFileId(null);
-                  }}
-                  className="glass-panel"
-                  style={{
-                      padding: '1rem 2rem',
-                      cursor: 'pointer',
-                      fontSize: '1rem',
-                      background: 'rgba(255, 255, 255, 0.1)',
-                      color: 'white',
-                      border: 'none'
-                  }}
-              >
-                  Return to Dashboard
-              </button>
-          </div>
-      );
+    return (
+      <div className="loader-container fade-in">
+        <h1 style={{ color: '#ef4444', marginBottom: '1rem' }}>⚠️ Oops!</h1>
+        <p style={{ color: '#94a3b8', marginBottom: '2rem', fontSize: '1.2rem' }}>
+          {status.replace("Error: ", "")}
+        </p>
+        <button
+          onClick={() => {
+            setStatus("Dashboard");
+            setFileId(null);
+          }}
+          className="glass-panel"
+          style={{
+            padding: '1rem 2rem',
+            cursor: 'pointer',
+            fontSize: '1rem',
+            background: 'rgba(255, 255, 255, 0.1)',
+            color: 'white',
+            border: 'none'
+          }}
+        >
+          Return to Dashboard
+        </button>
+      </div>
+    );
   }
 
   return <div>Error: Unknown State ({status})</div>;
