@@ -37,6 +37,7 @@ const App = () => {
   const [status, setStatus] = useState("Initializing");
   const [syncStatus, setSyncStatus] = useState("synced"); // 'Initializing' | 'Auth' | 'Dashboard' | 'Loading' | 'Ready' | 'Error' | 'Standalone'
   const [showPicker, setShowPicker] = useState(false);
+  const [showExitConfirmation, setShowExitConfirmation] = useState(false);
 
   const headRevisionIdRef = useRef(null);
   const currentDrawingRef = useRef(null);
@@ -146,6 +147,19 @@ const App = () => {
       }
     }
   }, [accessToken]);
+
+  // Prevent closing tab with unsaved changes
+  useEffect(() => {
+    const handleBeforeUnload = (e) => {
+      if (syncStatus === 'pending' || syncStatus === 'saving') {
+        e.preventDefault();
+        e.returnValue = ''; // Chrome requires returnValue to be set
+      }
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload);
+  }, [syncStatus]);
 
   // Sync URL with state
   useEffect(() => {
@@ -447,8 +461,12 @@ const App = () => {
           <div className="editor-navbar-left">
             <button
               onClick={() => {
-                setFileId(null);
-                setStatus("Dashboard");
+                if (syncStatus === "pending" || syncStatus === "saving") {
+                  setShowExitConfirmation(true);
+                } else {
+                  setFileId(null);
+                  setStatus("Dashboard");
+                }
               }}
               className="back-button"
               title="Back to Dashboard"
@@ -514,6 +532,23 @@ const App = () => {
             }}
           />
         </div>
+
+        {showExitConfirmation && (
+          <div className="modal-overlay">
+            <div className="modal">
+              <h3>Unsaved Changes</h3>
+              <p>Changes are currently being saved. If you leave now, you may lose your last edits.</p>
+              <div className="modal-actions">
+                <button onClick={() => setShowExitConfirmation(false)}>Keep Editing</button>
+                <button onClick={() => {
+                  setShowExitConfirmation(false);
+                  setFileId(null);
+                  setStatus("Dashboard");
+                }} className="danger">Leave without Saving</button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     );
   }
