@@ -277,7 +277,7 @@ const App = () => {
     }
   }, [accessToken, fileId, handleAuthError]);
 
-  const debouncedSave = useDebounce(saveToDrive, 2000);
+  const debouncedSave = useDebounce(saveToDrive, 500);
 
   const handleChange = useCallback((elements, appState, files) => {
     if (status === "Ready") {
