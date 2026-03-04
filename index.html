@@ -6,7 +6,20 @@
   <meta http-equiv="Content-Security-Policy"
     content="default-src 'self'; script-src 'self' 'unsafe-inline' https://apis.google.com https://accounts.google.com https://esm.sh; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://esm.sh; font-src 'self' https://fonts.gstatic.com https://esm.sh; img-src 'self' data: blob: https:; connect-src 'self' https://*.googleapis.com https://accounts.google.com https://esm.sh; frame-src https://accounts.google.com https://www.figma.com;" />
   <link rel="icon" type="image/jpeg" href="logo.jpg" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <!-- PWA manifest -->
+  <link rel="manifest" href="/manifest.json" />
+
+  <!-- iOS-specific PWA meta tags -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Drive Draw" />
+  <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+
+  <!-- Theme color for browser chrome -->
+  <meta name="theme-color" content="#1e1e2e" />
+
+  <!-- Ensure correct scaling on mobile -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>Drive Draw</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
