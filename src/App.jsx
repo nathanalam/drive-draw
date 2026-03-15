@@ -38,16 +38,21 @@ const App = () => {
   const [syncStatus, setSyncStatus] = useState("synced"); // 'Initializing' | 'Auth' | 'Dashboard' | 'Loading' | 'Ready' | 'Error' | 'Standalone'
   const [showPicker, setShowPicker] = useState(false);
   const [showExitConfirmation, setShowExitConfirmation] = useState(false);
+  const [authError, setAuthError] = useState(false);
 
   const headRevisionIdRef = useRef(null);
   const currentDrawingRef = useRef(null);
 
   const handleAuthError = useCallback(() => {
-    console.warn("Authentication failed or expired. Resetting auth state.");
+    console.warn("Authentication failed or expired.");
     localStorage.removeItem('accessToken');
     setAccessToken(null);
-    setStatus("Auth");
-  }, []);
+    if (status === "Ready") {
+      setAuthError(true);
+    } else {
+      setStatus("Auth");
+    }
+  }, [status]);
 
   // Update page title
   useEffect(() => {
@@ -68,7 +73,10 @@ const App = () => {
       fetchUserProfile(tokenResponse.access_token);
 
       // Determine next state
-      if (fileId) {
+      if (status === "Ready") {
+        setAuthError(false);
+        // We are already editing, just clear the error state
+      } else if (fileId) {
         // If we have unsaved work from before auth expired, restore it instead of loading from Drive
         if (currentDrawingRef.current && currentDrawingRef.current.elements && currentDrawingRef.current.elements.length > 0) {
           console.log("Restoring unsaved drawing after re-auth");
@@ -151,7 +159,7 @@ const App = () => {
   // Prevent closing tab with unsaved changes
   useEffect(() => {
     const handleBeforeUnload = (e) => {
-      if (syncStatus === 'pending' || syncStatus === 'saving') {
+      if (syncStatus === 'pending') {
         e.preventDefault();
         e.returnValue = ''; // Chrome requires returnValue to be set
       }
@@ -254,10 +262,12 @@ const App = () => {
           Authorization: `Bearer ${accessToken}`,
           'Content-Type': 'application/json'
         },
-        body: payload
+        body: payload,
+        keepalive: true
       });
 
       if (res.status === 401) {
+        setSyncStatus("error");
         handleAuthError();
         return;
       }
@@ -457,11 +467,55 @@ const App = () => {
       <div style={{ height: "100vh", width: "100vw", display: 'flex', flexDirection: 'column' }}>
         {/* Top Bar */}
         {/* Top Bar */}
+        {authError && (
+          <div style={{
+            background: '#ef4444',
+            color: 'white',
+            padding: '0.75rem',
+            textAlign: 'center',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '1rem',
+            fontWeight: '500'
+          }}>
+            <span>⚠️ Authentication expired or failed. Changes won't be saved until you re-authorize.</span>
+            <button
+              onClick={() => login()}
+              style={{
+                background: 'white',
+                color: '#ef4444',
+                border: 'none',
+                padding: '0.5rem 1rem',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontWeight: 'bold'
+              }}
+            >
+              Re-authorize
+            </button>
+            <button
+              onClick={() => setAuthError(false)}
+              style={{
+                background: 'transparent',
+                border: 'none',
+                color: 'white',
+                cursor: 'pointer',
+                fontSize: '1.2rem',
+                marginLeft: 'auto',
+                padding: '0 0.5rem'
+              }}
+              title="Dismiss warning"
+            >
+              ×
+            </button>
+          </div>
+        )}
         <div className="editor-navbar">
           <div className="editor-navbar-left">
             <button
               onClick={() => {
-                if (syncStatus === "pending" || syncStatus === "saving") {
+                if (syncStatus === "pending") {
                   setShowExitConfirmation(true);
                 } else {
                   setFileId(null);
