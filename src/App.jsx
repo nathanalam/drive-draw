@@ -42,17 +42,22 @@ const App = () => {
 
   const headRevisionIdRef = useRef(null);
   const currentDrawingRef = useRef(null);
+  const statusRef = useRef(status);
+
+  useEffect(() => {
+    statusRef.current = status;
+  }, [status]);
 
   const handleAuthError = useCallback(() => {
     console.warn("Authentication failed or expired.");
     localStorage.removeItem('accessToken');
     setAccessToken(null);
-    if (status === "Ready") {
+    if (statusRef.current === "Ready") {
       setAuthError(true);
     } else {
       setStatus("Auth");
     }
-  }, [status]);
+  }, []);
 
   // Update page title
   useEffect(() => {
