@@ -268,7 +268,7 @@ const App = () => {
           'Content-Type': 'application/json'
         },
         body: payload,
-        keepalive: true
+        keepalive: new Blob([payload]).size < 65000
       });
 
       if (res.status === 401) {
