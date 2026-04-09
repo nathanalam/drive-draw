@@ -70,6 +70,7 @@ const App = () => {
 
   // 1. Auth Setup
   const login = useGoogleLogin({
+    prompt: '',
     onSuccess: async (tokenResponse) => {
       setAccessToken(tokenResponse.access_token);
       localStorage.setItem('accessToken', tokenResponse.access_token);
